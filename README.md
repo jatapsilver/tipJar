@@ -21,7 +21,7 @@ yarn install
 
 ## Ejecucion del proyecto
 
-Front en vercel : https://vercel.com/javier-platas-projects/tip-jar
+Front en vercel : https://tip-jar-neon.vercel.app/
 
 ## Modo desarrollo en local front
 
