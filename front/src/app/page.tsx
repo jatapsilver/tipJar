@@ -1,0 +1,324 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ethers } from "ethers";
+
+declare global {
+  interface Window {
+    ethereum?: {
+      isMetaMask?: boolean;
+      request?: (args: {
+        method: string;
+        params?: unknown[];
+      }) => Promise<unknown>;
+      on?: (...args: unknown[]) => void;
+      removeListener?: (...args: unknown[]) => void;
+    };
+  }
+}
+
+const CONTRACT_ADDRESS = "0xE69Cf5b0Bbf075bEb7066d28Fa0272718CF0e651";
+const CONTRACT_ABI = [
+  { inputs: [], stateMutability: "nonpayable", type: "constructor" },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "from",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "message",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "timestamp",
+        type: "uint256",
+      },
+    ],
+    name: "NewTip",
+    type: "event",
+  },
+  {
+    inputs: [],
+    name: "getAllTips",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "from", type: "address" },
+          { internalType: "uint256", name: "amount", type: "uint256" },
+          { internalType: "string", name: "message", type: "string" },
+          { internalType: "uint256", name: "timestamp", type: "uint256" },
+        ],
+        internalType: "struct TipJar.Tip[]",
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getTipCount",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "string", name: "_message", type: "string" }],
+    name: "tip",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "tips",
+    outputs: [
+      { internalType: "address", name: "from", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "string", name: "message", type: "string" },
+      { internalType: "uint256", name: "timestamp", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "withdraw",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+];
+
+export default function Home() {
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
+  const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const [account, setAccount] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [tips, setTips] = useState<
+    { from: string; amount: bigint; message: string; timestamp: bigint }[]
+  >([]);
+
+  useEffect(() => {
+    if (provider) {
+      provider.getNetwork().then((network) => {
+        console.log("Conectado a la red:", network.name);
+      });
+    }
+  }, [provider]);
+
+  const checkNetwork = async (_provider: ethers.BrowserProvider) => {
+    const network = await _provider.getNetwork();
+    if (Number(network.chainId) !== 11155111) {
+      alert("Por favor cambia a la red Sepolia en Metamask");
+      return false;
+    }
+    return true;
+  };
+
+  const connectWallet = async () => {
+    if (!window.ethereum) return alert("Instala Metamask para continuar");
+    try {
+      const _provider = new ethers.BrowserProvider(
+        window.ethereum as ethers.Eip1193Provider
+      );
+      if (!(await checkNetwork(_provider))) return;
+      await window.ethereum.request?.({ method: "eth_requestAccounts" });
+      const _signer = await _provider.getSigner();
+      const _contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        _signer
+      );
+      setProvider(_provider);
+      setSigner(_signer);
+      setContract(_contract);
+      setAccount(await _signer.getAddress());
+    } catch (err: unknown) {
+      console.error("Error al conectar wallet:", err);
+      alert("Error al conectar wallet: " + String(err));
+    }
+  };
+
+  const disconnectWallet = () => {
+    setProvider(null);
+    setSigner(null);
+    setContract(null);
+    setAccount(null);
+    setTips([]);
+  };
+
+  const sendTip = async () => {
+    if (!contract || !signer) return;
+    try {
+      const tx = await contract.tip(message, {
+        value: ethers.parseEther("0.01"),
+      });
+      await tx.wait();
+      alert("¡Tip enviado!");
+      setMessage("");
+    } catch (err: unknown) {
+      console.error("Error al enviar tip:", err);
+      alert("Error al enviar tip: " + String(err));
+    }
+  };
+
+  const fetchTips = async () => {
+    if (!contract) return;
+    try {
+      const tipsData = await contract.getAllTips();
+      setTips(
+        (tipsData as typeof tips).map((tip) => ({
+          from: tip.from,
+          amount: tip.amount,
+          message: tip.message,
+          timestamp: tip.timestamp,
+        }))
+      );
+    } catch (err: unknown) {
+      console.error("Error al obtener tips:", err);
+      alert("Error al obtener tips: " + String(err));
+    }
+  };
+
+  const getOwner = async () => {
+    if (!contract) return;
+    try {
+      const owner = await contract.owner();
+      alert("El owner del contrato es: " + owner);
+    } catch (err: unknown) {
+      console.error("Error al obtener owner:", err);
+      alert("Error al obtener owner: " + String(err));
+    }
+  };
+
+  async function fetchTipCount(
+    event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+  ): Promise<void> {
+    event.preventDefault();
+    if (!contract) return;
+    try {
+      const count = await contract.getTipCount();
+      alert("Número de tips: " + count.toString());
+    } catch (err: unknown) {
+      console.error("Error al obtener el número de tips:", err);
+      alert("Error al obtener el número de tips: " + String(err));
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white p-8 font-mono">
+      <div className="max-w-2xl mx-auto text-center">
+        <h1 className="text-5xl font-extrabold mb-4 text-cyan-400 drop-shadow-[0_0_20px_cyan]">
+          TipJar By Javier Plata
+        </h1>
+
+        <div className="flex justify-center gap-4 mb-6">
+          {!account ? (
+            <button
+              onClick={connectWallet}
+              className="px-6 py-2 bg-cyan-500 hover:bg-cyan-700 rounded-full shadow-lg transition-all"
+            >
+              Conectar Wallet
+            </button>
+          ) : (
+            <button
+              onClick={disconnectWallet}
+              className="px-6 py-2 bg-red-500 hover:bg-red-700 rounded-full shadow-lg transition-all"
+            >
+              Desconectar
+            </button>
+          )}
+        </div>
+
+        {account && (
+          <p className="mb-4 text-green-400 text-sm">
+            Conectado como: {`${account.slice(0, 8)}...${account.slice(-4)}`}
+          </p>
+        )}
+
+        <div className="bg-gray-900 rounded-xl p-6 shadow-2xl space-y-4 mb-10 border border-cyan-700">
+          <input
+            type="text"
+            placeholder="Escribe tu mensaje"
+            className="w-full px-4 py-2 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <button
+            onClick={sendTip}
+            className="w-full bg-emerald-500 hover:bg-emerald-700 px-6 py-2 rounded-full transition-all"
+          >
+            Enviar Tip (0.01 ETH)
+          </button>
+          <button
+            onClick={fetchTips}
+            className="w-full bg-blue-500 hover:bg-blue-700 px-6 py-2 rounded-full"
+          >
+            Ver todos los tips
+          </button>
+          <button
+            onClick={fetchTipCount}
+            className="w-full bg-indigo-500 hover:bg-indigo-700 px-6 py-2 rounded-full"
+          >
+            Ver número de tips
+          </button>
+          <button
+            onClick={getOwner}
+            className="w-full bg-purple-500 hover:bg-purple-700 px-6 py-2 rounded-full"
+          >
+            Ver Owner
+          </button>
+
+          {tips.length > 0 && (
+            <div className="bg-gray-800 p-4 rounded-lg border border-cyan-600">
+              <h2 className="text-xl font-bold mb-3 text-cyan-300">
+                Tips Recibidos
+              </h2>
+              <ul className="space-y-3 text-left">
+                {tips.map((tip, idx) => (
+                  <li key={idx} className="border-b border-gray-600 pb-2">
+                    <p>
+                      💸 <strong>{ethers.formatEther(tip.amount)} ETH</strong>
+                    </p>
+                    <p>🧾 {tip.message}</p>
+                    <p>
+                      👤 {`${tip.from.slice(0, 8)}...${tip.from.slice(-4)}`}
+                    </p>
+                    <p>
+                      ⏱️{" "}
+                      {new Date(Number(tip.timestamp) * 1000).toLocaleString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
