@@ -253,6 +253,42 @@ export default function Home() {
     }
   };
 
+  const withdrawFunds = async () => {
+    if (!contract || !account) return;
+
+    try {
+      setLoading(true);
+      const contractOwner = await contract.owner();
+
+      if (contractOwner.toLowerCase() !== account.toLowerCase()) {
+        Swal.fire("Acceso denegado", "No eres el owner del contrato", "error");
+        return;
+      }
+
+      const tx = await contract.withdraw();
+      await tx.wait();
+      Swal.fire("Éxito", "Fondos retirados correctamente", "success");
+    } catch (error) {
+      console.error(error);
+      Swal.fire("Error", "Hubo un problema al retirar los fondos", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verFondosContrato = async () => {
+    if (!provider) return;
+
+    try {
+      const balance = await provider.getBalance(CONTRACT_ADDRESS);
+      const balanceEth = ethers.formatEther(balance);
+      Swal.fire("Fondos del Contrato", `${balanceEth} ETH`, "info");
+    } catch (error) {
+      console.error(error);
+      Swal.fire("Error", "No se pudo obtener el balance", "error");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white p-8 font-mono">
       <div className="max-w-2xl mx-auto text-center">
@@ -336,6 +372,22 @@ export default function Home() {
             className="w-full bg-purple-500 hover:bg-purple-700 px-6 py-2 rounded-full disabled:opacity-50"
           >
             {loading ? "Esperando respuesta de la blockchain..." : "Ver Owner"}
+          </button>
+          <button
+            className="w-full bg-red-500 hover:bg-red-700 px-6 py-2 rounded-full disabled:opacity-50"
+            disabled={loading}
+            onClick={verFondosContrato}
+          >
+            {loading
+              ? "Esperando respuesta de la blockchain..."
+              : "Ver Fondos del contrato"}
+          </button>
+          <button
+            className="w-full bg-yellow-500 hover:bg-yellow-700 px-6 py-2 rounded-full disabled:opacity-50"
+            onClick={withdrawFunds}
+            disabled={loading}
+          >
+            {loading ? "Procesando..." : "Retirar Fondos"}
           </button>
 
           {tips.length > 0 && (
