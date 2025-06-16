@@ -23,12 +23,7 @@ const CONTRACT_ABI = [
   {
     anonymous: false,
     inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "from",
-        type: "address",
-      },
+      { indexed: true, internalType: "address", name: "from", type: "address" },
       {
         indexed: false,
         internalType: "uint256",
@@ -118,6 +113,7 @@ export default function Home() {
   const [contract, setContract] = useState<ethers.Contract | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [amount, setAmount] = useState("0.01");
   const [tips, setTips] = useState<
     { from: string; amount: bigint; message: string; timestamp: bigint }[]
   >([]);
@@ -175,11 +171,12 @@ export default function Home() {
     if (!contract || !signer) return;
     try {
       const tx = await contract.tip(message, {
-        value: ethers.parseEther("0.01"),
+        value: ethers.parseEther(amount),
       });
       await tx.wait();
       alert("¡Tip enviado!");
       setMessage("");
+      setAmount("0.01");
     } catch (err: unknown) {
       console.error("Error al enviar tip:", err);
       alert("Error al enviar tip: " + String(err));
@@ -217,7 +214,7 @@ export default function Home() {
 
   async function fetchTipCount(
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-  ): Promise<void> {
+  ) {
     event.preventDefault();
     if (!contract) return;
     try {
@@ -268,11 +265,20 @@ export default function Home() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            placeholder="Monto en ETH (ej. 0.01)"
+            className="w-full px-4 py-2 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
           <button
             onClick={sendTip}
             className="w-full bg-emerald-500 hover:bg-emerald-700 px-6 py-2 rounded-full transition-all"
           >
-            Enviar Tip (0.01 ETH)
+            Enviar Tip ({amount} ETH)
           </button>
           <button
             onClick={fetchTips}
