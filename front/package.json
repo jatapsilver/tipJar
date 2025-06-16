@@ -12,7 +12,8 @@
     "ethers": "^6.14.4",
     "next": "14.2.30",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "sweetalert2": "^11.22.0"
   },
   "devDependencies": {
     "@types/node": "^20",
